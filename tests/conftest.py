@@ -61,7 +61,8 @@ def dbt_profile_target(profile_type, bv_server_process, tmp_path_factory):
         # Test against MotherDuck
         profile["disable_transactions"] = True
         profile["threads"] = 24
-        profile["path"] = "md:test?token={{ env_var('MOTHERDUCK_TOKEN') }}"
+        os.environ['motherduck_host']='api.staging.motherduck.com'
+        profile["path"] = "md:test?token={{ env_var('MOTHERDUCK_TOKEN') }}&motheduck_host=api.staging.motherduck.com"
     elif profile_type == "memory":
         pass  # use the default path-less profile
     else:
