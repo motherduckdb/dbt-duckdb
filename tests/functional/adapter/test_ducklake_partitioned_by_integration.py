@@ -73,6 +73,14 @@ models__invalid_partitioned_by_string = """
 select 1 as ds, 'a' as value
 """
 
+models__transform_partitioned_model = """
+{{ config(materialized='table', database='ducklake_db', partitioned_by=['day(ts)', 'region']) }}
+
+select TIMESTAMP '2025-01-01 00:00:00' as ts, 'us' as region, 1 as id
+union all
+select TIMESTAMP '2025-01-02 00:00:00' as ts, 'eu' as region, 2 as id
+"""
+
 
 def get_partition_columns(project, model_name, schema_name):
     relation = project.adapter.Relation.create(
@@ -99,6 +107,33 @@ def get_partition_columns(project, model_name, schema_name):
         order by c.column_id
     """
     return [row[0].lower() for row in project.run_sql(query, fetch="all")]
+
+
+def get_partition_columns_with_transforms(project, model_name, schema_name):
+    relation = project.adapter.Relation.create(
+        database="ducklake_db",
+        schema=schema_name,
+        identifier=model_name,
+    )
+    metadata_schema = "__ducklake_metadata_ducklake_db"
+    query = f"""
+        select c.column_name, pc.transform
+        from {metadata_schema}.ducklake_partition_column pc
+        join {metadata_schema}.ducklake_column c
+          on c.table_id = pc.table_id
+         and c.column_id = pc.column_id
+        join {metadata_schema}.ducklake_table t
+          on t.table_id = c.table_id
+        join {metadata_schema}.ducklake_schema s
+          on s.schema_id = t.schema_id
+        where lower(t.table_name) = lower('{relation.identifier}')
+          and lower(s.schema_name) = lower('{relation.schema}')
+          and t.end_snapshot is null
+          and c.end_snapshot is null
+          and s.end_snapshot is null
+        order by c.column_id
+    """
+    return [(row[0].lower(), row[1]) for row in project.run_sql(query, fetch="all")]
 
 
 @pytest.mark.requires_ducklake
@@ -137,6 +172,7 @@ class TestDucklakePartitionedByIntegration(BaseDucklakePartitionedBy):
             "table_partitioned_model.sql": models__table_partitioned_model,
             "incremental_partitioned_model.sql": models__incremental_partitioned_model,
             "python_partitioned_model.py": models__python_partitioned_model,
+            "transform_partitioned_model.sql": models__transform_partitioned_model,
         }
 
     def test_table_partitioned_by_sets_partition_columns(self, project):
@@ -168,6 +204,18 @@ class TestDucklakePartitionedByIntegration(BaseDucklakePartitionedBy):
         result = run_dbt(["run", "--select", "python_partitioned_model"], expect_pass=True)
         schema = result.results[0].node.schema
         assert get_partition_columns(project, "python_partitioned_model", schema) == ["ds"]
+
+    def test_table_partitioned_by_transform_sets_partition_columns(self, project):
+        result = run_dbt(["run", "--select", "transform_partitioned_model"], expect_pass=True)
+        schema = result.results[0].node.schema
+        partitions = get_partition_columns_with_transforms(
+            project, "transform_partitioned_model", schema
+        )
+        column_names = [p[0] for p in partitions]
+        transforms = [str(p[1]).lower() for p in partitions]
+        assert column_names == ["ts", "region"]
+        assert "day" in transforms[0]
+        assert transforms[1] in ("identity", "none", "")
 
 
 @pytest.mark.skip_profile("buenavista")

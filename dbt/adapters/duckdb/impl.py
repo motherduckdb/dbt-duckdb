@@ -1,4 +1,5 @@
 import os
+import re
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
@@ -52,6 +53,59 @@ if TYPE_CHECKING:
     import agate
 
 logger = AdapterLogger("DuckDB")
+
+
+_PARTITION_TRANSFORM_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_PARTITION_INJECTION_TOKENS = (";", "--")
+
+
+def _render_partition_part(raw: str) -> str:
+    """Render a single ``partitioned_by`` entry to SQL.
+
+    A bare value (no parentheses) is treated as an identifier and double-quoted.
+    A value containing parentheses is treated as a transform expression
+    (e.g. ``day(ts)``, ``bucket(16, "user_id")``); the function name is shape-
+    checked, the inner content is passed through verbatim, and quoting of any
+    column reference inside the parens is the user's responsibility.
+    """
+    s = raw.strip()
+    if not s:
+        raise DbtRuntimeError("partitioned_by entry must be a non-empty string")
+
+    if "(" in s:
+        if not s.endswith(")"):
+            raise DbtRuntimeError(
+                f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses"
+            )
+        name, _, rest = s.partition("(")
+        name = name.strip()
+        if not _PARTITION_TRANSFORM_NAME_RE.match(name):
+            raise DbtRuntimeError(
+                f"Invalid partitioned_by transform name {name!r} in {raw!r}"
+            )
+        inner = rest[:-1]
+        for token in _PARTITION_INJECTION_TOKENS:
+            if token in inner:
+                raise DbtRuntimeError(
+                    f"Invalid partitioned_by entry {raw!r}: contains {token!r}"
+                )
+        depth = 0
+        for ch in inner:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth < 0:
+                    raise DbtRuntimeError(
+                        f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses"
+                    )
+        if depth != 0:
+            raise DbtRuntimeError(
+                f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses"
+            )
+        return f"{name}({inner})"
+
+    return '"' + s.replace('"', '""') + '"'
 
 
 @dataclass
@@ -150,6 +204,10 @@ class DuckDBAdapter(SQLAdapter):
             return False
 
         return relation.database in self.config.credentials._ducklake_dbs
+
+    @available
+    def render_partition_part(self, raw: str) -> str:
+        return _render_partition_part(raw)
 
     @available
     def convert_datetimes_to_strs(self, table: "agate.Table") -> "agate.Table":
