@@ -58,6 +58,21 @@
   -- `COMMIT` happens here
   {{ adapter.commit() }}
 
+  {#--
+    DuckLake-specific: re-assert `partitioned_by` after the commit. The ALTER
+    SET PARTITIONED BY emitted inside `create_table_as` ran on the intermediate
+    relation, and some DuckLake backends can lose the partition metadata during
+    the materialization swap. Re-applying the spec on the final target_relation
+    in auto-commit mode is idempotent and durable. Data files written before
+    the rename are already laid out per the intended partition keys; this just
+    re-attaches the metadata.
+  --#}
+  {% if partitioned_by and post_commit_ducklake_docs %}
+    {% call statement('reassert_partitioned_by', auto_begin=False) -%}
+      {{ duckdb__alter_table_set_partitioned_by(target_relation, partitioned_by) }}
+    {%- endcall %}
+  {% endif %}
+
   {% if post_commit_ducklake_docs %}
     {% do persist_docs(target_relation, model) %}
     {{ adapter.commit() }}
