@@ -53,6 +53,12 @@ models__invalid_partitioned_by = """
 {{ render_create_table_as() }}
 """
 
+models__reassert_partitioned_by_table = """
+{{ config(materialized='table', partitioned_by='ds') }}
+
+select 1 as ds
+"""
+
 
 schema_yml = """
 version: 2
@@ -78,6 +84,17 @@ macros__render_py_write_table = """
   {%- set partitioned_by = duckdb__get_partitioned_by(this, temporary) -%}
   {{ return(py_write_table(temporary, this, compiled_code, partitioned_by=partitioned_by)) }}
 {% endmacro %}
+"""
+
+macros__record_partition_alter = """
+{% macro duckdb__alter_table_set_partitioned_by(relation, partitioned_by) -%}
+  insert into
+    {{ adapter.quote(relation.database) }}.{{ adapter.quote(relation.schema) }}.{{ adapter.quote('partition_alter_calls') }}
+  values (
+    '{{ relation.identifier | replace("'", "''") }}',
+    '{{ partitioned_by | replace("'", "''") }}'
+  );
+{%- endmacro %}
 """
 
 
@@ -189,6 +206,56 @@ class TestNonDucklakePartitionedByCompile(BasePartitionedByCompile):
         assert "set partitioned by" not in sql_contract
         assert "set partitioned by" not in sql_time_parts
         assert "set partitioned by" not in python_code
+
+
+@pytest.mark.skip_profile("buenavista", "md")
+class TestDucklakeTableMaterializationPartitionReassert:
+    @pytest.fixture(scope="class")
+    def project_config_update(self):
+        return {
+            "name": "ducklake_partitioned_by_reassert",
+        }
+
+    @pytest.fixture(scope="class")
+    def dbt_profile_target(self, dbt_profile_target):
+        target = dict(dbt_profile_target)
+        target["is_ducklake"] = True
+        return target
+
+    @pytest.fixture(scope="class")
+    def models(self):
+        return {
+            "reassert_partitioned_by_table.sql": models__reassert_partitioned_by_table,
+        }
+
+    @pytest.fixture(scope="class")
+    def macros(self):
+        return {
+            "record_partition_alter.sql": macros__record_partition_alter,
+        }
+
+    def test_table_materialization_reasserts_partitioning_on_final_relation(self, project):
+        audit_relation = project.adapter.Relation.create(
+            database=project.database,
+            schema=project.test_schema,
+            identifier="partition_alter_calls",
+        )
+        project.run_sql(
+            f"create table {audit_relation} (relation_identifier varchar, partitioned_by varchar)"
+        )
+
+        run_dbt(["run", "--select", "reassert_partitioned_by_table"], expect_pass=True)
+
+        rows = project.run_sql(
+            f"select relation_identifier, partitioned_by from {audit_relation}",
+            fetch="all",
+        )
+        identifiers = [row[0] for row in rows]
+
+        assert len(rows) == 2
+        assert "reassert_partitioned_by_table" in identifiers
+        assert any(identifier != "reassert_partitioned_by_table" for identifier in identifiers)
+        assert all(row[1] == '"ds"' for row in rows)
 
 
 class TestPartitionedByValidation:
