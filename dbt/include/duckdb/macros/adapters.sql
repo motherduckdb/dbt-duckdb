@@ -64,10 +64,10 @@
   {%- endif -%}
 
   {%- set raw = config.get('partitioned_by', none) -%}
-  {%- if raw is none -%}
+  {%- if raw is none or raw == '' -%}
     {%- set raw = config.get('partition_by', none) -%}
   {%- endif -%}
-  {%- if raw is none -%}
+  {%- if raw is none or raw == '' -%}
     {{ return(none) }}
   {%- endif -%}
 
@@ -91,12 +91,11 @@
     {{ return(none) }}
   {%- endif -%}
 
-  {%- set quoted = [] -%}
+  {%- set rendered = [] -%}
   {%- for col in parts -%}
-    {%- set escaped = col | replace('"', '""') -%}
-    {%- do quoted.append(adapter.quote(escaped)) -%}
+    {%- do rendered.append(adapter.render_partition_part(col)) -%}
   {%- endfor -%}
-  {{ return(quoted | join(', ')) }}
+  {{ return(rendered | join(', ')) }}
 {%- endmacro %}
 
 

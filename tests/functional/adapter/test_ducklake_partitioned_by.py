@@ -35,6 +35,18 @@ models__partitioned_by_time_parts = """
 {{ render_create_table_as("select 1 as event_day, 2 as event_month, 3 as event_year, 4 as event_hour") }}
 """
 
+models__partitioned_by_transform = """
+{{ config(materialized='view', partitioned_by=['day(ts)', 'region']) }}
+
+{{ render_create_table_as("select TIMESTAMP '2024-01-01' as ts, 'us' as region") }}
+"""
+
+models__partitioned_by_bucket_transform = """
+{{ config(materialized='view', partitioned_by=['bucket(16, user_id)']) }}
+
+{{ render_create_table_as("select 1 as user_id") }}
+"""
+
 models__partitioned_by_python = """
 {{ config(materialized='view', partitioned_by='ds') }}
 
@@ -112,6 +124,8 @@ class BasePartitionedByCompile:
             "partitioned_by_python.sql": models__partitioned_by_python,
             "contract_partitioned_by.sql": models__contract_partitioned_by,
             "partitioned_by_time_parts.sql": models__partitioned_by_time_parts,
+            "partitioned_by_transform.sql": models__partitioned_by_transform,
+            "partitioned_by_bucket_transform.sql": models__partitioned_by_bucket_transform,
             "schema.yml": schema_yml,
         }
 
@@ -168,6 +182,24 @@ class TestDucklakePartitionedByCompile(BasePartitionedByCompile):
             re.IGNORECASE | re.DOTALL,
         )
 
+    def test_partitioned_by_transform(self, project):
+        run_dbt(["compile"])
+        sql = read_compiled_file(project, "partitioned_by_transform", "sql")
+        assert re.search(
+            r'alter\s+table.*set\s+partitioned\s+by\s*\(\s*day\(ts\)\s*,\s*"region"\s*\)',
+            sql,
+            re.IGNORECASE | re.DOTALL,
+        )
+
+    def test_partitioned_by_bucket_transform(self, project):
+        run_dbt(["compile"])
+        sql = read_compiled_file(project, "partitioned_by_bucket_transform", "sql")
+        assert re.search(
+            r'alter\s+table.*set\s+partitioned\s+by\s*\(\s*bucket\(16,\s*user_id\)\s*\)',
+            sql,
+            re.IGNORECASE | re.DOTALL,
+        )
+
 
 class TestNonDucklakePartitionedByCompile(BasePartitionedByCompile):
     @pytest.fixture(scope="class")
@@ -183,11 +215,15 @@ class TestNonDucklakePartitionedByCompile(BasePartitionedByCompile):
         sql_incremental = read_compiled_file(project, "partition_by_incremental", "sql").lower()
         sql_contract = read_compiled_file(project, "contract_partitioned_by", "sql").lower()
         sql_time_parts = read_compiled_file(project, "partitioned_by_time_parts", "sql").lower()
+        sql_transform = read_compiled_file(project, "partitioned_by_transform", "sql").lower()
+        sql_bucket = read_compiled_file(project, "partitioned_by_bucket_transform", "sql").lower()
         python_code = read_compiled_file(project, "partitioned_by_python", "sql").lower()
         assert "set partitioned by" not in sql_table
         assert "set partitioned by" not in sql_incremental
         assert "set partitioned by" not in sql_contract
         assert "set partitioned by" not in sql_time_parts
+        assert "set partitioned by" not in sql_transform
+        assert "set partitioned by" not in sql_bucket
         assert "set partitioned by" not in python_code
 
 
