@@ -305,7 +305,7 @@ class DuckDBAdapter(SQLAdapter):
         except DbtInternalError as e:
             # Log commit errors instead of silently swallowing them to aid debugging
             if "Tried to commit transaction on connection" in str(e) and "but it does not have one open" in str(e):
-                logger.warning(str(e))
+                logger.warning(f"(warning) {e}")
                 pass
             else:
                 raise
