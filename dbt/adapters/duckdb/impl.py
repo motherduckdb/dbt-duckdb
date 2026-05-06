@@ -367,7 +367,7 @@ class DuckDBAdapter(SQLAdapter):
             self.connections.commit_if_has_connection()
         except DbtInternalError as e:
             # Log commit errors instead of silently swallowing them to aid debugging
-            if e.message.contains("Tried to commit transaction on connection") and e.message.contains('but it does not have one open'):
+            if str(e).contains("Tried to commit transaction on connection") and str(e).contains('but it does not have one open'):
                 pass
             else:
                 raise
