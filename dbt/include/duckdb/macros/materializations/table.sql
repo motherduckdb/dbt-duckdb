@@ -29,10 +29,9 @@
   -- `BEGIN` happens here:
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
   {%- set partitioned_by = duckdb__get_partitioned_by(target_relation, false) -%}
-  {%- set skip_auto_begin = partitioned_by and adapter.is_ducklake(target_relation) -%}
 
   -- build model
-  {% call statement('main', language=language, auto_begin=not skip_auto_begin) -%}
+  {% call statement('main', language=language) -%}
     {{- create_table_as(False, intermediate_relation, compiled_code, language, partitioned_by=partitioned_by) }}
   {%- endcall %}
 
@@ -51,6 +50,7 @@
 
   {% set should_revoke = should_revoke(existing_relation, full_refresh_mode=True) %}
   {% do apply_grants(target_relation, grant_config, should_revoke=should_revoke) %}
+
   {% if not post_commit_ducklake_docs %}
     {% do persist_docs(target_relation, model) %}
   {% endif %}
@@ -58,16 +58,12 @@
   -- `COMMIT` happens here
   {{ adapter.commit() }}
 
-  {#--
-    DuckLake-specific: re-assert `partitioned_by` after the commit. The ALTER
-    SET PARTITIONED BY emitted inside `create_table_as` ran on the intermediate
-    relation, and some DuckLake backends can lose the partition metadata during
-    the materialization swap. Re-applying the spec on the final target_relation
-    in auto-commit mode is idempotent and durable. Data files written before
-    the rename are already laid out per the intended partition keys; this just
-    re-attaches the metadata.
-  --#}
   {% if partitioned_by and post_commit_ducklake_docs %}
+    {#--
+      DuckLake currently forgets partition metadata when SET PARTITIONED BY
+      happens inside the same transaction as a table rename. Re-assert the
+      partition spec on the final target relation after the swap commits.
+    --#}
     {% call statement('reassert_partitioned_by', auto_begin=False) -%}
       {{ duckdb__alter_table_set_partitioned_by(target_relation, partitioned_by) }}
     {%- endcall %}
@@ -75,7 +71,6 @@
 
   {% if post_commit_ducklake_docs %}
     {% do persist_docs(target_relation, model) %}
-    {{ adapter.commit() }}
   {% endif %}
 
   -- finally, drop the existing/backup relation after the commit
