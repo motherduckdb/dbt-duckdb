@@ -74,21 +74,15 @@ def _render_partition_part(raw: str) -> str:
 
     if "(" in s:
         if not s.endswith(")"):
-            raise DbtRuntimeError(
-                f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses"
-            )
+            raise DbtRuntimeError(f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses")
         name, _, rest = s.partition("(")
         name = name.strip()
         if not _PARTITION_TRANSFORM_NAME_RE.match(name):
-            raise DbtRuntimeError(
-                f"Invalid partitioned_by transform name {name!r} in {raw!r}"
-            )
+            raise DbtRuntimeError(f"Invalid partitioned_by transform name {name!r} in {raw!r}")
         inner = rest[:-1]
         for token in _PARTITION_INJECTION_TOKENS:
             if token in inner:
-                raise DbtRuntimeError(
-                    f"Invalid partitioned_by entry {raw!r}: contains {token!r}"
-                )
+                raise DbtRuntimeError(f"Invalid partitioned_by entry {raw!r}: contains {token!r}")
         depth = 0
         for ch in inner:
             if ch == "(":
@@ -100,9 +94,7 @@ def _render_partition_part(raw: str) -> str:
                         f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses"
                     )
         if depth != 0:
-            raise DbtRuntimeError(
-                f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses"
-            )
+            raise DbtRuntimeError(f"Invalid partitioned_by entry {raw!r}: unbalanced parentheses")
         return f"{name}({inner})"
 
     return '"' + s.replace('"', '""') + '"'
