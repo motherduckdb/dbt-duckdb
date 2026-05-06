@@ -304,9 +304,10 @@ class DuckDBAdapter(SQLAdapter):
             self.connections.commit_if_has_connection()
         except DbtInternalError as e:
             # Log commit errors instead of silently swallowing them to aid debugging
-            logger.warning(f"Commit failed with DbtInternalError: {e}\n{traceback.format_exc()}")
-            # Still pass to maintain backward compatibility, but now with visibility
-            pass
+            if e.message.contains("Tried to commit transaction on connection") and e.message.contains('but it does not have one open'):
+                pass
+            else:
+                raise
 
     def submit_python_job(self, parsed_model: dict, compiled_code: str) -> AdapterResponse:
         connection = self.connections.get_if_exists()
