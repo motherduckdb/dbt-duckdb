@@ -53,6 +53,39 @@ macros__assert_ducklake_drop_relation = """
     {{ exceptions.raise_compiler_error("unqualified DuckLake table relation was not dropped") }}
   {% endif %}
 {% endmacro %}
+
+{% macro assert_drop_explicit_ducklake_view_relation(schema_name) %}
+  {% do run_query("create schema if not exists ducklake_db." ~ schema_name) %}
+
+  {% set source_relation = api.Relation.create(
+      database='ducklake_db',
+      schema=schema_name,
+      identifier='view_drop_source',
+      type='table'
+  ) %}
+  {% set view_relation = api.Relation.create(
+      database='ducklake_db',
+      schema=schema_name,
+      identifier='explicit_view_drop_target',
+      type='view'
+  ) %}
+
+  {% do run_query("drop view if exists " ~ view_relation) %}
+  {% do run_query("drop table if exists " ~ source_relation) %}
+  {% do run_query("create table " ~ source_relation ~ " as select 1 as id") %}
+  {% do run_query("create view " ~ view_relation ~ " as select * from " ~ source_relation) %}
+  {% do adapter.drop_relation(view_relation) %}
+
+  {% set result = run_query(
+      "select count(*) from system.information_schema.tables "
+      ~ "where table_catalog = 'ducklake_db' "
+      ~ "and table_schema = '" ~ schema_name ~ "' "
+      ~ "and table_name = 'explicit_view_drop_target'"
+  ) %}
+  {% if result.columns[0].values()[0] != 0 %}
+    {{ exceptions.raise_compiler_error("explicit DuckLake view relation was not dropped") }}
+  {% endif %}
+{% endmacro %}
 """
 
 
@@ -108,5 +141,16 @@ class TestDucklakeDropRelation:
     def test_drop_unqualified_ducklake_table_relation_omits_cascade(self, project):
         run_dbt(
             ["run-operation", "assert_drop_unqualified_ducklake_table_relation"],
+            expect_pass=True,
+        )
+
+    def test_drop_explicit_ducklake_view_relation_omits_cascade(self, project):
+        run_dbt(
+            [
+                "run-operation",
+                "assert_drop_explicit_ducklake_view_relation",
+                "--args",
+                f'{{schema_name: "{project.test_schema}"}}',
+            ],
             expect_pass=True,
         )
