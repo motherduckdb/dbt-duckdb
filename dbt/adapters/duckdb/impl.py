@@ -152,19 +152,6 @@ class DuckDBAdapter(SQLAdapter):
         return relation.database in self.config.credentials._ducklake_dbs
 
     @available
-    def should_omit_drop_cascade(self, relation: DuckDBRelation) -> bool:
-        """Return True when drop_relation must avoid DROP ... CASCADE."""
-        if not relation:
-            return False
-
-        if relation.database:
-            return self.is_ducklake(relation)
-
-        # dbt-duckdb uses unqualified temp relations during materializations.
-        # Treat those as targeting the configured database for DuckLake safety.
-        return self.config.credentials.database in self.config.credentials._ducklake_dbs
-
-    @available
     def convert_datetimes_to_strs(self, table: "agate.Table") -> "agate.Table":
         import agate
 
