@@ -5,7 +5,7 @@ from dbt.tests.util import run_dbt
 
 
 macros__assert_ducklake_drop_relation = """
-{% macro assert_drop_explicit_ducklake_relation(schema_name) %}
+{% macro assert_drop_explicit_ducklake_table_relation(schema_name) %}
   {% do run_query("create schema if not exists ducklake_db." ~ schema_name) %}
 
   {% set relation = api.Relation.create(
@@ -26,11 +26,11 @@ macros__assert_ducklake_drop_relation = """
       ~ "and table_name = 'explicit_drop_target'"
   ) %}
   {% if result.columns[0].values()[0] != 0 %}
-    {{ exceptions.raise_compiler_error("explicit DuckLake relation was not dropped") }}
+    {{ exceptions.raise_compiler_error("explicit DuckLake table relation was not dropped") }}
   {% endif %}
 {% endmacro %}
 
-{% macro assert_drop_unqualified_ducklake_relation() %}
+{% macro assert_drop_unqualified_ducklake_table_relation() %}
   {% do run_query("drop table if exists unqualified_drop_target") %}
   {% do run_query("create table unqualified_drop_target as select 1 as id") %}
 
@@ -50,7 +50,7 @@ macros__assert_ducklake_drop_relation = """
       ~ "and table_name = 'unqualified_drop_target'"
   ) %}
   {% if result.columns[0].values()[0] != 0 %}
-    {{ exceptions.raise_compiler_error("unqualified DuckLake relation was not dropped") }}
+    {{ exceptions.raise_compiler_error("unqualified DuckLake table relation was not dropped") }}
   {% endif %}
 {% endmacro %}
 """
@@ -94,19 +94,19 @@ class TestDucklakeDropRelation:
     def macros(self):
         return {"assert_ducklake_drop_relation.sql": macros__assert_ducklake_drop_relation}
 
-    def test_drop_explicit_ducklake_relation_omits_cascade(self, project):
+    def test_drop_explicit_ducklake_table_relation_omits_cascade(self, project):
         run_dbt(
             [
                 "run-operation",
-                "assert_drop_explicit_ducklake_relation",
+                "assert_drop_explicit_ducklake_table_relation",
                 "--args",
                 f'{{schema_name: "{project.test_schema}"}}',
             ],
             expect_pass=True,
         )
 
-    def test_drop_unqualified_relation_omits_cascade_when_target_is_ducklake(self, project):
+    def test_drop_unqualified_ducklake_table_relation_omits_cascade(self, project):
         run_dbt(
-            ["run-operation", "assert_drop_unqualified_ducklake_relation"],
+            ["run-operation", "assert_drop_unqualified_ducklake_table_relation"],
             expect_pass=True,
         )
