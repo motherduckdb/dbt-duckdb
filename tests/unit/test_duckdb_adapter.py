@@ -5,8 +5,22 @@ from unittest import mock
 from dbt.flags import set_from_args
 from dbt.adapters.duckdb import DuckDBAdapter
 from dbt.adapters.duckdb.connections import DuckDBConnectionManager
+from dbt.adapters.duckdb.environments.local import DuckDBConnectionWrapper
 from dbt.adapters.duckdb.relation import DuckDBRelation
 from tests.unit.utils import config_from_parts_or_dicts, mock_connection
+
+
+class TestDuckDBConnectionWrapper(unittest.TestCase):
+    def test_rollback_forwards_to_cursor(self):
+        cursor = mock.MagicMock()
+        env = mock.MagicMock()
+        expected = object()
+        cursor.rollback.return_value = expected
+
+        handle = DuckDBConnectionWrapper(cursor, env)
+
+        self.assertIs(handle.rollback(), expected)
+        cursor.rollback.assert_called_once_with()
 
 
 class TestDuckDBAdapter(unittest.TestCase):
