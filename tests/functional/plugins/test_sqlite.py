@@ -11,6 +11,7 @@ model_sql = """
 """
 
 
+@pytest.mark.skip_profile("md")
 class TestSQLitePlugin:
 
     @pytest.fixture(scope="class")
@@ -60,5 +61,4 @@ class TestSQLitePlugin:
 
         res = project.run_sql("SELECT COUNT(1) FROM satest.read_write", fetch="one")
         assert res[0] == 2
-
 

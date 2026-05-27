@@ -24,6 +24,7 @@ from packaging.version import Version
 from .constants import DEFAULT_TEMP_SCHEMA_NAME
 from .constants import DUCKDB_BASE_INCREMENTAL_STRATEGIES
 from .constants import DUCKDB_MERGE_LOWEST_VERSION_POSSIBLE
+from .constants import DUCKLAKE_ALTER_RENAME_FIX_VERSION
 from .constants import TEMP_SCHEMA_NAME
 from dbt.adapters.base import AdapterConfig
 from dbt.adapters.base import BaseRelation
@@ -158,6 +159,13 @@ class DuckDBAdapter(SQLAdapter):
             return False
 
         return relation.database in self.config.credentials._ducklake_dbs
+
+    @available
+    def use_ducklake_alter_workaround(self, relation: DuckDBRelation) -> bool:
+        """Return whether DuckLake table ALTERs need to be reasserted after rename."""
+        return self.is_ducklake(relation) and self.duckdb_version < Version(
+            DUCKLAKE_ALTER_RENAME_FIX_VERSION
+        )
 
     @available
     def convert_datetimes_to_strs(self, table: "agate.Table") -> "agate.Table":
