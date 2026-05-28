@@ -7,22 +7,19 @@ from dbt.tests.adapter.persist_docs.test_persist_docs import (
 )
 from dbt.tests.util import run_dbt
 
-@pytest.mark.skip_profile("md")
 class TestPersistDocs(BasePersistDocs):
     pass
 
 
-@pytest.mark.skip_profile("md")
 class TestPersistDocsColumnMissing(BasePersistDocsColumnMissing):
     pass
 
 
-@pytest.mark.skip_profile("md")
 class TestPersistDocsCommentOnQuotedColumn(BasePersistDocsCommentOnQuotedColumn):
     pass
 
 @pytest.mark.requires_ducklake
-@pytest.mark.skip_profile("md", "buenavista")
+@pytest.mark.skip_profile("buenavista")
 class TestDuckLakePersistDocsTransactions:
     @pytest.fixture(scope="class")
     def ducklake_paths(self, tmp_path_factory):
