@@ -3,6 +3,7 @@ from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
 from dbt_common.exceptions import DbtRuntimeError
+from sqlparse import split
 
 from . import Environment
 from . import RetryableCursor
@@ -25,7 +26,8 @@ class MotherDuckPgEndpointCursorWrapper:
     def execute(self, sql, bindings=None):
         try:
             if bindings is None:
-                self._cursor.execute(sql)
+                for statement in split(sql):
+                    self._cursor.execute(statement)
             else:
                 self._cursor.execute(sql, bindings)
         except Exception as e:

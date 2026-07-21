@@ -7,6 +7,12 @@ select *
 from seed_table
 """
 
+endpoint_seed_csv = """id,name
+1,quack
+2,dbt
+"""
+
+
 def motherduck_pg_endpoint_profile(dbt_profile_target, test_database_name):
     profile = {
         "type": "duckdb",
@@ -59,6 +65,10 @@ class TestMotherDuckPgEndpoint:
     def models(self):
         return {"endpoint_model.sql": model_sql}
 
+    @pytest.fixture(scope="class")
+    def seeds(self):
+        return {"endpoint_seed.csv": endpoint_seed_csv}
+
     @pytest.fixture(autouse=True)
     def setup(self, project):
         project.run_sql(
@@ -66,6 +76,7 @@ class TestMotherDuckPgEndpoint:
         )
         yield
         project.run_sql("DROP VIEW IF EXISTS endpoint_model")
+        project.run_sql("DROP TABLE IF EXISTS endpoint_seed")
         project.run_sql("DROP TABLE IF EXISTS seed_table")
 
     def test_run_sql_model_through_pg_endpoint(self, project):
@@ -76,3 +87,12 @@ class TestMotherDuckPgEndpoint:
             1,
             "quack",
         )
+
+    def test_seed_through_pg_endpoint(self, project):
+        results = run_dbt(["seed"])
+
+        assert len(results) == 1
+        assert project.run_sql(
+            "SELECT id, name FROM endpoint_seed ORDER BY id",
+            fetch="all",
+        ) == [(1, "quack"), (2, "dbt")]

@@ -35,6 +35,7 @@ class TestDuckDBAdapter(unittest.TestCase):
             "config-version": 2,
         }
 
+        self.project_cfg = project_cfg
         self.config = config_from_parts_or_dicts(project_cfg, profile_cfg, cli_vars={})
         self._adapter = None
 
@@ -75,6 +76,30 @@ class TestDuckDBAdapter(unittest.TestCase):
             self.assertIsNone(self.adapter.expand_column_types(mock.MagicMock(), mock.MagicMock()))
             get_cols.assert_not_called()
             alter.assert_not_called()
+
+    def test_motherduck_postgres_endpoint(self):
+        self.assertFalse(self.adapter.motherduck_postgres_endpoint())
+
+        profile_cfg = {
+            "outputs": {
+                "test": {
+                    "type": "duckdb",
+                    "path": "md:jaffle_shop",
+                    "motherduck_token": "quack",
+                    "motherduck_postgres_endpoint": True,
+                    "motherduck_pg_endpoint_host": "pg.example.com",
+                }
+            },
+            "target": "test",
+        }
+        config = config_from_parts_or_dicts(
+            self.project_cfg,
+            profile_cfg,
+            cli_vars={},
+        )
+        adapter = DuckDBAdapter(config, self.mock_mp_context)
+
+        self.assertTrue(adapter.motherduck_postgres_endpoint())
 
 
 class TestDuckDBAdapterWithSecrets(unittest.TestCase):

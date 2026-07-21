@@ -205,6 +205,27 @@ def test_cursor_wrapper_wraps_execute_errors():
     assert "query failed" in str(exc.value)
 
 
+def test_cursor_wrapper_executes_sql_scripts_one_statement_at_a_time():
+    raw_cursor = FakeCursor()
+    cursor = MotherDuckPgEndpointCursorWrapper(raw_cursor)
+
+    cursor.execute("create table t (value text); insert into t values ('a;b');")
+
+    assert raw_cursor.sql == [
+        ("create table t (value text);", None),
+        ("insert into t values ('a;b');", None),
+    ]
+
+
+def test_cursor_wrapper_does_not_split_bound_queries():
+    raw_cursor = FakeCursor()
+    cursor = MotherDuckPgEndpointCursorWrapper(raw_cursor)
+
+    cursor.execute("select %s; select %s", (1, 2))
+
+    assert raw_cursor.sql == [("select %s; select %s", (1, 2))]
+
+
 def test_python_models_are_not_supported():
     creds = DuckDBCredentials.from_dict(
         {
