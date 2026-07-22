@@ -102,7 +102,7 @@ def get_partition_columns(project, model_name, schema_name):
 
 
 @pytest.mark.requires_ducklake
-@pytest.mark.skip_profile("buenavista", "md")
+@pytest.mark.skip_profile("buenavista", "md", "md-pg")
 class BaseDucklakePartitionedBy:
     @pytest.fixture(scope="class")
     def ducklake_attachment(self, tmp_path_factory):

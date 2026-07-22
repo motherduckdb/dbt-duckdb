@@ -110,7 +110,7 @@ def get_sort_columns(project, model_name, schema_name):
 
 
 @pytest.mark.requires_ducklake
-@pytest.mark.skip_profile("buenavista", "md")
+@pytest.mark.skip_profile("buenavista", "md", "md-pg")
 class BaseDucklakeSortedBy:
     @pytest.fixture(scope="class")
     def ducklake_attachment(self, tmp_path_factory):

@@ -13,7 +13,7 @@ from dbt.tests.util import run_dbt
 @pytest.mark.skip_database_type(
     "ducklake", reason="DuckLake does not support comments on view columns"
 )
-@pytest.mark.skip_profile("md")
+@pytest.mark.skip_profile("md", "md-pg")
 class TestPersistDocs(BasePersistDocs):
     pass
 
@@ -21,7 +21,7 @@ class TestPersistDocs(BasePersistDocs):
 @pytest.mark.skip_database_type(
     "ducklake", reason="DuckLake does not support comments on view columns"
 )
-@pytest.mark.skip_profile("md")
+@pytest.mark.skip_profile("md", "md-pg")
 class TestPersistDocsColumnMissing(BasePersistDocsColumnMissing):
     pass
 
@@ -29,13 +29,13 @@ class TestPersistDocsColumnMissing(BasePersistDocsColumnMissing):
 @pytest.mark.skip_database_type(
     "ducklake", reason="DuckLake does not support comments on view columns"
 )
-@pytest.mark.skip_profile("md")
+@pytest.mark.skip_profile("md", "md-pg")
 class TestPersistDocsCommentOnQuotedColumn(BasePersistDocsCommentOnQuotedColumn):
     pass
 
 
 @pytest.mark.requires_ducklake
-@pytest.mark.skip_profile("md", "buenavista")
+@pytest.mark.skip_profile("md", "md-pg", "buenavista")
 class TestDuckLakePersistDocsTransactions:
     @pytest.fixture(scope="class")
     def ducklake_paths(self, tmp_path_factory):

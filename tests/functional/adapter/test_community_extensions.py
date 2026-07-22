@@ -52,6 +52,6 @@ class BaseCommunityExtensions:
         check_relation_types(project.adapter, expected)
 
 @pytest.mark.skip_profile("nightly", reason="Cannot install community extensions for nightly release")
-@pytest.mark.skip_profile("buenavista")
+@pytest.mark.skip_profile("buenavista", "md-pg")
 class TestCommunityExtensions(BaseCommunityExtensions):
     pass

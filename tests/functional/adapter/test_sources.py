@@ -39,6 +39,7 @@ models_multi_source_model_sql = """select s.* from {{ source('external_source', 
 """
 
 
+@pytest.mark.skip_profile("md-pg")
 class TestExternalSources:
     @pytest.fixture(scope="class")
     def models(self):

@@ -34,7 +34,7 @@ models_target_model_sql = """
 """
 
 
-@pytest.mark.skip_profile("memory", "buenavista", "md")
+@pytest.mark.skip_profile("memory", "buenavista", "md", "md-pg")
 class TestAttachedDatabase:
     @pytest.fixture(scope="class")
     def attach_test_db(self):
@@ -99,7 +99,7 @@ indexed_model_sql = """
 """
 
 
-@pytest.mark.skip_profile("memory", "buenavista", "md")
+@pytest.mark.skip_profile("memory", "buenavista", "md", "md-pg")
 class TestIndexOnAttachedDatabase:
     """Regression test for #771: dropping indexes on a table in an attached
     (non-default) catalog requires the full three-part database.schema.index

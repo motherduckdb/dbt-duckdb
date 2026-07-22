@@ -182,7 +182,7 @@ class TestDocsGenReferencesDuckDB(BaseDocsGenReferences):
         )
 
 
-@pytest.mark.skip_profile("buenavista", "md")
+@pytest.mark.skip_profile("buenavista", "md", "md-pg")
 class TestCatalogRelationsDuckDB:
     @pytest.fixture(scope="class")
     def attach_test_db(self, tmp_path_factory, unique_schema):

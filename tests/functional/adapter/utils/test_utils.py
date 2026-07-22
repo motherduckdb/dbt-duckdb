@@ -111,7 +111,7 @@ class TestLength(BaseLength):
 
 
 # NOTE: list_agg relies on an ORDER BY construct MD does not yet support
-@pytest.mark.skip_profile("md")
+@pytest.mark.skip_profile("md", "md-pg")
 class TestListagg(BaseListagg):
     pass
 

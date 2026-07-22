@@ -2,6 +2,8 @@ import pytest
 from dbt.tests.util import run_dbt
 from dbt.exceptions import DbtRuntimeError
 
+pytestmark = pytest.mark.skip_profile("md-pg")
+
 
 incremental_model_1_sql = """
 {{ config(materialized='incremental') }}

@@ -3,6 +3,8 @@ from dbt.tests.util import (
     run_dbt,
 )
 
+pytestmark = pytest.mark.skip_profile("md-pg")
+
 random_logs_sql = """
 {{ config(materialized='table', meta=dict(temp_schema_name='dbt_temp_test')) }}
 

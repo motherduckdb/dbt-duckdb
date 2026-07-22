@@ -9,6 +9,8 @@ from dbt.tests.adapter.python_model.test_python_model import (
 )
 from dbt.tests.util import run_dbt
 
+pytestmark = pytest.mark.skip_profile("md-pg")
+
 basic_python_template = """
 import pandas as pd
 

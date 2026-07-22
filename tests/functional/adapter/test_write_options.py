@@ -126,5 +126,6 @@ class BaseExternalMaterializations:
         assert len(catalog.sources) == 1
 
 
+@pytest.mark.skip_profile("md-pg")
 class TestExternalMaterializations(BaseExternalMaterializations):
     pass

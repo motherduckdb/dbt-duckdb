@@ -6,6 +6,8 @@ from dbt.artifacts.schemas.results import RunStatus
 
 from dbt.adapters.duckdb.environments.motherduck import MOTHERDUCK_SAAS_MODE_QUERY
 
+pytestmark = pytest.mark.skip_profile("md-pg")
+
 random_logs_sql = """
 {{ config(materialized='table', meta=dict(temp_schema_name='dbt_temp_test')) }}
 

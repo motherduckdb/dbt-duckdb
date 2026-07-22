@@ -12,6 +12,8 @@ from dbt.adapters.duckdb.__version__ import version as plugin_version
 from dbt.artifacts.schemas.results import RunStatus
 from dbt.version import __version__
 
+pytestmark = pytest.mark.skip_profile("md-pg")
+
 random_logs_sql = """
 {{ config(materialized='table', meta=dict(temp_schema_name='dbt_temp_test')) }}
 

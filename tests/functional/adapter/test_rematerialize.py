@@ -26,6 +26,7 @@ select a from {{ ref('upstream_partition_by_model') }}
 
 
 # class must begin with 'Test'
+@pytest.mark.skip_profile("md-pg")
 class TestRematerializeDownstreamExternalModel:
     """
     External models should load in dependencies when they exist.

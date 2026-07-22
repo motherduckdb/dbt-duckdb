@@ -4,6 +4,8 @@ from dbt.tests.adapter.unit_testing.test_types import BaseUnitTestingTypes
 from dbt.tests.adapter.unit_testing.test_case_insensitivity import BaseUnitTestCaseInsensivity
 from dbt.tests.adapter.unit_testing.test_invalid_input import BaseUnitTestInvalidInput
 
+pytestmark = pytest.mark.skip_profile("md-pg")
+
 
 @pytest.mark.skip_profile("buenavista")
 class TestUnitTestingTypesDuckDB(BaseUnitTestingTypes):

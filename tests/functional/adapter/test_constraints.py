@@ -64,21 +64,21 @@ class TestIncrementalConstraintsColumnsEqual(
     pass
 
 
-@pytest.mark.skip_profile("md")
+@pytest.mark.skip_profile("md", "md-pg")
 class TestTableConstraintsRuntimeDdlEnforcement(
     DuckDBColumnEqualSetup, BaseConstraintsRuntimeDdlEnforcement
 ):
     pass
 
 
-@pytest.mark.skip_profile("md", "buenavista")
+@pytest.mark.skip_profile("md", "md-pg", "buenavista")
 class TestTableConstraintsRollback(DuckDBColumnEqualSetup, BaseConstraintsRollback):
     @pytest.fixture(scope="class")
     def expected_error_messages(self):
         return ["NOT NULL constraint failed"]
 
 
-@pytest.mark.skip_profile("md")
+@pytest.mark.skip_profile("md", "md-pg")
 class TestIncrementalConstraintsRuntimeDdlEnforcement(
     DuckDBColumnEqualSetup, BaseIncrementalConstraintsRuntimeDdlEnforcement
 ):
@@ -87,7 +87,7 @@ class TestIncrementalConstraintsRuntimeDdlEnforcement(
         return ["NOT NULL constraint failed"]
 
 
-@pytest.mark.skip_profile("md", "buenavista")
+@pytest.mark.skip_profile("md", "md-pg", "buenavista")
 class TestIncrementalConstraintsRollback(
     DuckDBColumnEqualSetup, BaseIncrementalConstraintsRollback
 ):
@@ -96,7 +96,7 @@ class TestIncrementalConstraintsRollback(
         return ["NOT NULL constraint failed"]
 
 
-@pytest.mark.skip_profile("md")
+@pytest.mark.skip_profile("md", "md-pg")
 class TestModelConstraintsRuntimeEnforcement(
     DuckDBColumnEqualSetup, BaseModelConstraintsRuntimeEnforcement
 ):

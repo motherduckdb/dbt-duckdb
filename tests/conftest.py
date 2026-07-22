@@ -175,10 +175,9 @@ def dbt_profile_target(profile_type, database_type, bv_server_process, tmpdir_fa
 
 @pytest.fixture(autouse=True, scope="class")
 def skip_by_profile_type(profile_type, request):
-    if request.node.get_closest_marker("skip_profile"):
-        for skip_profile_type in request.node.get_closest_marker("skip_profile").args:
-            if skip_profile_type == profile_type:
-                pytest.skip(f"skipped on '{profile_type}' profile")
+    for marker in request.node.iter_markers("skip_profile"):
+        if profile_type in marker.args:
+            pytest.skip(f"skipped on '{profile_type}' profile")
 
 
 @pytest.fixture(autouse=True, scope="class")

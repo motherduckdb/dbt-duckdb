@@ -188,12 +188,12 @@ class BaseExternalMaterializations:
         assert len(catalog.sources) == 1
 
 
-@pytest.mark.skip_profile("buenavista")
+@pytest.mark.skip_profile("buenavista", "md-pg")
 class TestExternalMaterializations(BaseExternalMaterializations):
     pass
 
 
-@pytest.mark.skip_profile("buenavista")
+@pytest.mark.skip_profile("buenavista", "md-pg")
 class TestExternalMaterializationsLocalEmpty(BaseExternalMaterializations):
     @pytest.fixture(scope="class")
     def dest(self):
