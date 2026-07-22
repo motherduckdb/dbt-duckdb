@@ -1,3 +1,12 @@
+import pytest
+from dbt.tests.util import run_dbt
+
+
+model_sql = """
+select *
+from seed_table
+"""
+
 def motherduck_pg_endpoint_profile(dbt_profile_target, test_database_name):
     profile = {
         "type": "duckdb",
@@ -38,3 +47,32 @@ def test_motherduck_pg_endpoint_profile_preserves_connection_overrides():
     assert profile["motherduck_pg_endpoint_host"] == "pg.example.com"
     assert profile["motherduck_pg_endpoint_sslmode"] == "verify-full"
     assert profile["motherduck_pg_endpoint_sslrootcert"] == "/tmp/root.crt"
+
+
+@pytest.mark.skip_profile("buenavista", "file", "memory", "md", "nightly")
+class TestMotherDuckPgEndpoint:
+    @pytest.fixture(scope="class")
+    def profiles_config_update(self, dbt_profile_target, test_database_name):
+        return motherduck_pg_endpoint_profile(dbt_profile_target, test_database_name)
+
+    @pytest.fixture(scope="class")
+    def models(self):
+        return {"endpoint_model.sql": model_sql}
+
+    @pytest.fixture(autouse=True)
+    def setup(self, project):
+        project.run_sql(
+            "CREATE OR REPLACE TABLE seed_table AS SELECT 1 AS id, 'quack' AS name"
+        )
+        yield
+        project.run_sql("DROP VIEW IF EXISTS endpoint_model")
+        project.run_sql("DROP TABLE IF EXISTS seed_table")
+
+    def test_run_sql_model_through_pg_endpoint(self, project):
+        results = run_dbt(["run"])
+
+        assert len(results) == 1
+        assert project.run_sql("SELECT * FROM endpoint_model", fetch="one") == (
+            1,
+            "quack",
+        )

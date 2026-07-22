@@ -5,7 +5,11 @@ from unittest import mock
 from botocore.credentials import Credentials
 from dbt_common.exceptions import DbtRuntimeError
 
+from dbt.adapters.duckdb import environments
 from dbt.adapters.duckdb.credentials import Attachment, DuckDBCredentials
+from dbt.adapters.duckdb.environments.motherduck_pg_endpoint import (
+    MotherDuckPgEndpointEnvironment,
+)
 from dbt.adapters.duckdb.plugins.motherduck import Plugin as MotherDuckPlugin
 
 
@@ -542,6 +546,22 @@ def test_motherduck_pg_endpoint_rejects_non_motherduck_attach():
         DuckDBCredentials.from_dict(payload)
 
     assert "only supports attaching other MotherDuck databases" in str(exc.value)
+
+
+def test_motherduck_pg_endpoint_routes_to_pg_endpoint_environment():
+    creds = DuckDBCredentials.from_dict(
+        {
+            "path": "md:jaffle_shop",
+            "motherduck_token": "quack",
+            "motherduck_postgres_endpoint": True,
+            "motherduck_pg_endpoint_host": "pg.example.com",
+        }
+    )
+
+    env = environments.create(creds)
+
+    assert isinstance(env, MotherDuckPgEndpointEnvironment)
+    assert env.get_binding_char() == "%s"
 
 
 def test_add_ducklake_secret_with_map():
