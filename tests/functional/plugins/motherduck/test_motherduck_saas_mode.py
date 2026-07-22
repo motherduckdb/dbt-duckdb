@@ -50,7 +50,7 @@ class TestMDPluginSaaSMode:
     @pytest.fixture(scope="class")
     def profiles_config_update(self, dbt_profile_target, test_database_name):
         md_config = {
-            "motherduck_token": dbt_profile_target.get("token"),
+            "motherduck_token": dbt_profile_target.get("motherduck_token"),
             "motherduck_saas_mode": True,
             "motherduck_dbinstance_inactivity_ttl": "0s",
         }
@@ -108,7 +108,7 @@ class TestMDPluginSaaSModeViaAttach(TestMDPluginSaaSMode):
     @pytest.fixture(scope="class")
     def profiles_config_update(self, dbt_profile_target, test_database_name):
         md_config = {
-            "token": dbt_profile_target.get("token"),
+            "motherduck_token": dbt_profile_target.get("motherduck_token"),
             "saas_mode": 1
         }
         plugins = [{"module": "motherduck", "config": md_config}]
@@ -137,7 +137,7 @@ class TestMDPluginSaaSModeViaAttachWithSettings(TestMDPluginSaaSMode):
     @pytest.fixture(scope="class")
     def profiles_config_update(self, dbt_profile_target, test_database_name):
         md_setting = {
-            "motherduck_token": dbt_profile_target.get("token"),
+            "motherduck_token": dbt_profile_target.get("motherduck_token"),
             "motherduck_saas_mode": True
         }
         return {
@@ -164,7 +164,7 @@ class TestMDPluginSaaSModeViaAttachWithSettings(TestMDPluginSaaSMode):
 class TestMDPluginSaaSModeViaAttachWithTokenInPath(TestMDPluginSaaSMode):
     @pytest.fixture(scope="class")
     def profiles_config_update(self, dbt_profile_target, test_database_name):
-        token = dbt_profile_target.get("token")
+        token = dbt_profile_target.get("motherduck_token")
         qs = f"?motherduck_token={token}&saas_mode=true&user=4"
         return {
             "test": {

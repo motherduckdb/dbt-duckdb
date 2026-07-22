@@ -55,7 +55,7 @@ def model(dbt, con):
 class TestMDPlugin:
     @pytest.fixture(scope="class")
     def profiles_config_update(self, dbt_profile_target, test_database_name):
-        md_config = {"token": dbt_profile_target.get("token")}
+        md_config = {"motherduck_token": dbt_profile_target.get("motherduck_token")}
         plugins = [{"module": "motherduck", "config": md_config}]
         return {
             "test": {
@@ -127,7 +127,7 @@ class TestMDPlugin:
 
 @pytest.fixture
 def mock_plugin_config():
-    return {"token": "quack"}
+    return {"motherduck_token": "quack"}
 
 
 @pytest.fixture

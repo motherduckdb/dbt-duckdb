@@ -6,6 +6,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Union
+from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
 from dbt_common.dataclass_schema import dbtClassMixin
@@ -135,6 +136,12 @@ class Remote(dbtClassMixin):
     password: Optional[str] = None
 
 
+MOTHERDUCK_PG_ENDPOINT_PORT = 5432
+MOTHERDUCK_PG_ENDPOINT_USER = "postgres"
+MOTHERDUCK_PG_ENDPOINT_SSLMODE = "require"
+MOTHERDUCK_PG_ENDPOINT_SSLROOTCERT = None
+
+
 @dataclass
 class Retries(dbtClassMixin):
     # The number of times to attempt the initial duckdb.connect call
@@ -203,6 +210,20 @@ class DuckDBCredentials(Credentials):
     # Used to configure remote environments/connections
     remote: Optional[Remote] = None
 
+    # When connecting to a MotherDuck database. Mutually exclusive with passing a token on the path.
+    motherduck_token: Optional[str] = None
+
+    # Use MotherDuck's PostgreSQL-compatible endpoint instead of a local
+    # DuckDB connection with the MotherDuck extension.
+    motherduck_postgres_endpoint: bool = False
+
+    # MotherDuck PostgreSQL endpoint connection options.
+    motherduck_pg_endpoint_host: Optional[str] = None
+    motherduck_pg_endpoint_port: int = MOTHERDUCK_PG_ENDPOINT_PORT
+    motherduck_pg_endpoint_user: str = MOTHERDUCK_PG_ENDPOINT_USER
+    motherduck_pg_endpoint_sslmode: str = MOTHERDUCK_PG_ENDPOINT_SSLMODE
+    motherduck_pg_endpoint_sslrootcert: Optional[str] = MOTHERDUCK_PG_ENDPOINT_SSLROOTCERT
+
     # A list of dbt-duckdb plugins that can be used to customize the
     # behavior of loading source data and/or storing the relations that are
     # created by SQL or Python models; see the plugins module for more details.
@@ -260,9 +281,14 @@ class DuckDBCredentials(Credentials):
                     else:
                         self._ducklake_dbs.add(self.path_derived_database_name(path))
 
+        self._validate_motherduck_token_config()
+
+        if self.motherduck_postgres_endpoint:
+            self._validate_motherduck_pg_endpoint_config()
+
         # Add MotherDuck plugin if the path is a MotherDuck database
         # and plugin was not specified in profile.yml
-        if self.is_motherduck:
+        if self.is_motherduck and not self.motherduck_postgres_endpoint:
             if self.plugins is None:
                 self.plugins = []
             if "motherduck" not in [plugin.module for plugin in self.plugins]:
@@ -290,6 +316,55 @@ class DuckDBCredentials(Credentials):
 
     def secrets_sql(self) -> List[str]:
         return [secret.to_sql() for secret in self._secrets]
+
+    def _validate_motherduck_pg_endpoint_config(self):
+        if not self.is_motherduck:
+            raise DbtRuntimeError(
+                "motherduck_postgres_endpoint requires a MotherDuck path or attachment"
+            )
+
+        if self.remote:
+            raise DbtRuntimeError(
+                "motherduck_postgres_endpoint cannot be used with remote"
+            )
+
+        if self.plugins:
+            raise DbtRuntimeError(
+                "plugins are not supported when motherduck_postgres_endpoint is true"
+            )
+
+        if self.filesystems:
+            raise DbtRuntimeError(
+                "filesystems are not supported when motherduck_postgres_endpoint is true"
+            )
+
+        for attachment in self.attach or []:
+            parsed = urlparse(attachment.path)
+            if not self._is_motherduck(parsed.scheme):
+                raise DbtRuntimeError(
+                    "motherduck_postgres_endpoint only supports attaching "
+                    "other MotherDuck databases"
+                )
+
+        if not self.motherduck_pg_endpoint_host:
+            raise DbtRuntimeError(
+                "motherduck_pg_endpoint_host is required when "
+                "motherduck_postgres_endpoint is true"
+            )
+
+    def _validate_motherduck_token_config(self):
+        if self.motherduck_token is None:
+            return
+
+        paths = [self.path, *(attachment.path for attachment in self.attach or [])]
+        for path in paths:
+            parsed = urlparse(path)
+            query = parse_qs(parsed.query, keep_blank_values=True)
+            if self._is_motherduck(parsed.scheme) and "motherduck_token" in query:
+                raise DbtRuntimeError(
+                    "motherduck_token cannot be specified both as a target field "
+                    "and in a MotherDuck path query parameter"
+                )
 
     @property
     def motherduck_attach(self):
@@ -377,6 +452,12 @@ class DuckDBCredentials(Credentials):
         """
         if self.remote:
             return self.remote.host + str(self.remote.port)
+        elif self.motherduck_postgres_endpoint:
+            return (
+                self.motherduck_pg_endpoint_host
+                + str(self.motherduck_pg_endpoint_port)
+                + self.database
+            )
         else:
             return self.path + self.external_root
 
@@ -397,6 +478,12 @@ class DuckDBCredentials(Credentials):
             "attach",
             "filesystems",
             "remote",
+            "motherduck_postgres_endpoint",
+            "motherduck_pg_endpoint_host",
+            "motherduck_pg_endpoint_port",
+            "motherduck_pg_endpoint_user",
+            "motherduck_pg_endpoint_sslmode",
+            "motherduck_pg_endpoint_sslrootcert",
             "plugins",
             "disable_transactions",
         )

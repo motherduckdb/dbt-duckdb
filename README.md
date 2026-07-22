@@ -63,6 +63,14 @@ purpose, column meaning, and expected grain before they generate queries.
 As of `dbt-duckdb` 1.5.2, you can connect to a DuckDB instance running on [MotherDuck](http://www.motherduck.com) by setting your `path` to use a [md:<database> connection string](https://motherduck.com/docs/getting-started/connect-query-from-python/installation-authentication), just as you would with the DuckDB CLI
 or the Python API.
 
+Set `motherduck_token` on the target to authenticate both regular DuckDB client connections and PostgreSQL endpoint connections. Authentication is resolved in this order:
+
+1. `motherduck_token` on the target.
+1. The `motherduck_token` query parameter in the MotherDuck path.
+1. The `MOTHERDUCK_TOKEN` environment variable.
+
+The environment variable is only used when neither profile option supplies a token. Do not set `motherduck_token` on the target when a MotherDuck path already contains a `motherduck_token` query parameter; profiles that specify both are rejected.
+
 MotherDuck databases generally work the same way as local DuckDB databases from the perspective of dbt, but
 there are a [few differences to be aware of](https://motherduck.com/docs/architecture-and-capabilities#considerations-and-limitations):
 1. MotherDuck is compatible with client DuckDB versions 0.10.2 and newer.
@@ -77,6 +85,31 @@ CREATE DATABASE my_ducklake
 ```
 
 An example profile is shown below under "Attaching Additional Databases". DuckLake must be identified so that safe DDL operations are applied by dbt.
+
+##### MotherDuck PostgreSQL Endpoint
+
+You can also connect to MotherDuck through its [PostgreSQL endpoint](https://motherduck.com/docs/key-tasks/authenticating-and-connecting-to-motherduck/postgres-endpoint/). In this mode, dbt still compiles DuckDB SQL, but sends queries to MotherDuck's PostgreSQL-compatible endpoint instead of using the DuckDB Python client with the MotherDuck extension.
+
+To enable this mode set `motherduck_postgres_endpoint` to `true` on the target on `profiles.yml`, and make sure to install the optional postgres dependency.
+
+```shell
+python -m pip install "dbt-duckdb[md-postgres]"
+```
+
+```yaml
+default:
+  outputs:
+    pg_endpoint_target:
+      type: duckdb
+      path: md:my_database
+      motherduck_token: "{{ env_var('MOTHERDUCK_TOKEN') }}"
+      motherduck_postgres_endpoint: true
+      motherduck_pg_endpoint_host: pg.us-east-1-aws.motherduck.com
+```
+
+The endpoint password is your MotherDuck access token. Set `motherduck_pg_endpoint_host` to the hostname for your MotherDuck region. The connection uses `sslmode=require` by default, to opt into full certificate verification set `motherduck_pg_endpoint_sslmode: verify-full` and `motherduck_pg_endpoint_sslrootcert: system`, or provide a local root certificate path supported by your `psycopg`/`libpq` installation.
+
+This mode is intended for normal SQL model execution against MotherDuck. Local dbt-duckdb plugins, local filesystems, and Python models are not supported because there is no local DuckDB Python connection. DuckDB extensions listed in `extensions` are installed and loaded on the endpoint side when MotherDuck supports them. Any configured `attach` entries must point to other MotherDuck databases.
 
 #### DuckDB Extensions, Settings, and Filesystems
 

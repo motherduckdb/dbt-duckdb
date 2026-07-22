@@ -69,6 +69,9 @@ class Plugin(BasePlugin):
             if self.creds.settings is not None:
                 config.update(self.creds.settings)
 
+            if self.creds.motherduck_token:
+                config["motherduck_token"] = self.creds.motherduck_token
+
             # set MD config options and remove from settings
             for key, value in self.get_md_config_settings(config).items():
                 conn.execute(f"SET {key} = '{value}'")
@@ -87,3 +90,5 @@ class Plugin(BasePlugin):
         # pass it to the config kwarg in duckdb.connect.
         if not creds.is_motherduck_attach:
             config.update(self.get_md_config_settings(self._config))
+            if creds.motherduck_token:
+                config["motherduck_token"] = creds.motherduck_token

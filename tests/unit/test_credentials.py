@@ -3,8 +3,10 @@ import pytest
 from unittest import mock
 
 from botocore.credentials import Credentials
+from dbt_common.exceptions import DbtRuntimeError
 
 from dbt.adapters.duckdb.credentials import Attachment, DuckDBCredentials
+from dbt.adapters.duckdb.plugins.motherduck import Plugin as MotherDuckPlugin
 
 
 def test_load_basic_settings():
@@ -369,8 +371,6 @@ def test_database_mismatch_without_attach_alias():
 
 def test_database_matches_attach_alias_no_alias():
     """Test that attach entries without aliases don't affect validation"""
-    from dbt_common.exceptions import DbtRuntimeError
-    
     payload = {
         "path": "/tmp/primary.db",
         "database": "nonexistent_alias",
@@ -381,6 +381,167 @@ def test_database_matches_attach_alias_no_alias():
     with pytest.raises(DbtRuntimeError) as exc:
         DuckDBCredentials.from_dict(payload)
     assert "Inconsistency detected between 'path' and 'database' fields" in str(exc.value)
+
+
+def test_motherduck_pg_endpoint_config():
+    payload = {
+        "path": "md:jaffle_shop",
+        "motherduck_token": "quack",
+        "motherduck_postgres_endpoint": True,
+        "motherduck_pg_endpoint_host": "pg.example.com",
+    }
+    creds = DuckDBCredentials.from_dict(payload)
+
+    assert creds.motherduck_postgres_endpoint is True
+    assert creds.motherduck_pg_endpoint_host == "pg.example.com"
+    assert creds.motherduck_pg_endpoint_port == 5432
+    assert creds.motherduck_pg_endpoint_user == "postgres"
+    assert creds.motherduck_pg_endpoint_sslmode == "require"
+    assert creds.motherduck_pg_endpoint_sslrootcert is None
+    assert creds.motherduck_token == "quack"
+    assert creds.plugins is None
+
+
+def test_motherduck_pg_endpoint_token_is_not_connection_info():
+    creds = DuckDBCredentials.from_dict(
+        {
+            "path": "md:jaffle_shop",
+            "motherduck_token": "quack",
+            "motherduck_postgres_endpoint": True,
+            "motherduck_pg_endpoint_host": "pg.example.com",
+        }
+    )
+
+    assert "motherduck_token" not in dict(creds.connection_info())
+
+
+def test_motherduck_token_configures_duckdb_connection():
+    creds = DuckDBCredentials.from_dict(
+        {
+            "path": "md:jaffle_shop",
+            "motherduck_token": "quack",
+        }
+    )
+    plugin = MotherDuckPlugin(
+        name="motherduck", plugin_config={}, credentials=creds
+    )
+    config = {}
+
+    plugin.update_connection_config(creds, config)
+
+    assert config["motherduck_token"] == "quack"
+
+
+def test_motherduck_plugin_aliases_token():
+    assert MotherDuckPlugin.get_md_config_settings({"token": "quack"}) == {
+        "motherduck_token": "quack"
+    }
+
+
+def test_motherduck_token_configures_duckdb_attachment():
+    creds = DuckDBCredentials.from_dict(
+        {
+            "path": ":memory:",
+            "motherduck_token": "quack",
+            "attach": [{"path": "md:jaffle_shop"}],
+        }
+    )
+    plugin = MotherDuckPlugin(
+        name="motherduck", plugin_config={}, credentials=creds
+    )
+    conn = mock.Mock()
+
+    plugin.configure_connection(conn)
+
+    conn.execute.assert_any_call("SET motherduck_token = 'quack'")
+
+
+@pytest.mark.parametrize("postgres_endpoint", [False, True])
+def test_motherduck_token_rejects_token_in_path(postgres_endpoint):
+    with pytest.raises(DbtRuntimeError) as exc:
+        DuckDBCredentials.from_dict(
+            {
+                "path": "md:jaffle_shop?motherduck_token=path-token",
+                "motherduck_token": "target-token",
+                "motherduck_postgres_endpoint": postgres_endpoint,
+            }
+        )
+
+    assert "cannot be specified both" in str(exc.value)
+    assert "path-token" not in str(exc.value)
+    assert "target-token" not in str(exc.value)
+
+
+def test_motherduck_token_rejects_token_in_attachment_path():
+    with pytest.raises(DbtRuntimeError) as exc:
+        DuckDBCredentials.from_dict(
+            {
+                "path": ":memory:",
+                "motherduck_token": "target-token",
+                "attach": [{"path": "md:jaffle_shop?motherduck_token=path-token"}],
+            }
+        )
+
+    assert "cannot be specified both" in str(exc.value)
+
+
+def test_motherduck_pg_endpoint_requires_host():
+    payload = {
+        "path": "md:jaffle_shop",
+        "motherduck_token": "quack",
+        "motherduck_postgres_endpoint": True,
+    }
+    with pytest.raises(DbtRuntimeError) as exc:
+        DuckDBCredentials.from_dict(payload)
+
+    assert "motherduck_pg_endpoint_host is required" in str(exc.value)
+
+
+def test_motherduck_pg_endpoint_requires_motherduck():
+    payload = {
+        "path": ":memory:",
+        "motherduck_postgres_endpoint": True,
+    }
+    with pytest.raises(DbtRuntimeError) as exc:
+        DuckDBCredentials.from_dict(payload)
+
+    assert "requires a MotherDuck path or attachment" in str(exc.value)
+
+
+def test_motherduck_pg_endpoint_rejects_remote():
+    payload = {
+        "path": "md:jaffle_shop",
+        "motherduck_postgres_endpoint": True,
+        "remote": {"host": "localhost", "port": 5433, "user": "test"},
+    }
+    with pytest.raises(DbtRuntimeError) as exc:
+        DuckDBCredentials.from_dict(payload)
+
+    assert "cannot be used with remote" in str(exc.value)
+
+
+def test_motherduck_pg_endpoint_rejects_plugins():
+    payload = {
+        "path": "md:jaffle_shop",
+        "motherduck_postgres_endpoint": True,
+        "plugins": [{"module": "gsheet"}],
+    }
+    with pytest.raises(DbtRuntimeError) as exc:
+        DuckDBCredentials.from_dict(payload)
+
+    assert "plugins are not supported" in str(exc.value)
+
+
+def test_motherduck_pg_endpoint_rejects_non_motherduck_attach():
+    payload = {
+        "path": "md:jaffle_shop",
+        "motherduck_postgres_endpoint": True,
+        "attach": [{"path": "/tmp/local.duckdb"}],
+    }
+    with pytest.raises(DbtRuntimeError) as exc:
+        DuckDBCredentials.from_dict(payload)
+
+    assert "only supports attaching other MotherDuck databases" in str(exc.value)
 
 
 def test_add_ducklake_secret_with_map():
