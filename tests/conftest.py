@@ -2,6 +2,7 @@ import os
 import resource
 import subprocess
 import time
+import uuid
 from importlib import metadata
 
 import duckdb
@@ -89,6 +90,27 @@ def dbt_profile_target(profile_type, bv_server_process, tmpdir_factory):
         raise ValueError(f"Invalid profile type '{profile_type}'")
 
     return profile
+
+
+@pytest.fixture(scope="session")
+def motherduck_ducklake_database(dbt_profile_target, profile_type):
+    if profile_type != "md":
+        yield None
+        return
+
+    database_name = f"dbt_duckdb_ducklake_{uuid.uuid4().hex[:12]}"
+    token = dbt_profile_target["token"]
+    conn = duckdb.connect(f"md:?motherduck_token={token}")
+    try:
+        conn.execute(f"CREATE DATABASE {database_name} (TYPE ducklake)")
+        database_type = conn.execute(
+            "select type from md_databases() where name = ?", [database_name]
+        ).fetchone()
+        assert database_type == ("DUCKLAKE",)
+        yield database_name
+    finally:
+        conn.execute(f"DROP DATABASE IF EXISTS {database_name}")
+        conn.close()
 
 
 @pytest.fixture(autouse=True, scope="class")
